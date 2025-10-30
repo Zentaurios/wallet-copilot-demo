@@ -142,7 +142,7 @@ function HomeContent() {
           <span className="text-tw-primary font-semibold">thirdweb</span>
           <span className="text-secondary-text hidden sm:inline"> • </span>
           <span className="text-secondary-text hidden sm:inline">Built with </span>
-          <span className="text-tw-accent font-semibold hidden sm:inline">Next.js 15</span>
+          <span className="text-tw-accent font-semibold hidden sm:inline">Next.js 16</span>
         </div>
       </div>
     </div>
