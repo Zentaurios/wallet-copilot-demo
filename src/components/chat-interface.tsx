@@ -590,7 +590,7 @@ What would you like to do?`,
       )}
 
       {/* Input Area - Sticky at bottom */}
-      <div className="glass border-t border-border p-4 sticky bottom-0 bg-[hsl(var(--background))] z-10">
+      <div className="glass border-t border-border p-4 sticky bottom-0 bg-[hsl(var(--background))] z-[5]">
         <div className="flex gap-3">
           <textarea
             value={input}

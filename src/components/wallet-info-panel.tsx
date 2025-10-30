@@ -2,6 +2,7 @@
 
 import { useActiveAccount, useWalletBalance, useSendTransaction, useSwitchActiveWalletChain, useActiveWalletChain } from "thirdweb/react";
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { client } from "@/lib/thirdweb";
 import { ethereum, base, polygon, arbitrum, optimism, sepolia } from "thirdweb/chains";
 import { prepareTransaction, toWei } from "thirdweb";
@@ -31,6 +32,8 @@ export function WalletInfoPanel() {
   const [showBridgeModal, setShowBridgeModal] = useState(false);
   const [sendTo, setSendTo] = useState("");
   const [sendAmount, setSendAmount] = useState("");
+  const [receiveAmount, setReceiveAmount] = useState("");
+  const [qrMode, setQrMode] = useState<"address" | "payment">("address");
 
   // Get balance for the active chain
   const { data: balance, isLoading: balanceLoading } = useWalletBalance({
@@ -100,6 +103,22 @@ export function WalletInfoPanel() {
 
   const getCurrentChainInfo = () => {
     return CHAINS.find(c => c.chain.id === activeChain?.id) || CHAINS[0];
+  };
+
+  // Generate EIP-681 URI for QR codes
+  const getQRValue = () => {
+    if (!account) return "";
+    
+    const chainId = activeChain?.id || ethereum.id;
+    
+    if (qrMode === "payment" && receiveAmount) {
+      // Payment Request mode with amount
+      const weiAmount = BigInt(Math.floor(parseFloat(receiveAmount) * 1e18));
+      return `ethereum:${account.address}?chain=${chainId}&value=${weiAmount.toString()}`;
+    }
+    
+    // Address Only mode - still use EIP-681 URI to prompt wallet
+    return `ethereum:${account.address}?chain=${chainId}`;
   };
 
   if (!mounted || !account) {
@@ -223,8 +242,8 @@ export function WalletInfoPanel() {
       </div>
 
       {/* Send Modal */}
-      {showSendModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowSendModal(false)}>
+      {showSendModal && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]" onClick={() => setShowSendModal(false)}>
           <div className="glass rounded-2xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-xl font-bold mb-4">Send ETH</h2>
             
@@ -269,61 +288,126 @@ export function WalletInfoPanel() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Receive Modal */}
-      {showReceiveModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowReceiveModal(false)}>
+      {showReceiveModal && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]" onClick={() => setShowReceiveModal(false)}>
           <div className="glass rounded-2xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-xl font-bold mb-4">Receive ETH</h2>
+            <h2 className="text-xl font-bold mb-4">Receive {balance?.symbol || "ETH"}</h2>
             
             <div className="space-y-4">
+              {/* Mode Toggle */}
+              <div className="flex gap-2 p-1 bg-white/5 rounded-lg">
+                <button
+                  onClick={() => {
+                    setQrMode("address");
+                    setReceiveAmount("");
+                  }}
+                  className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
+                    qrMode === "address"
+                      ? "bg-gradient-to-r from-tw-primary to-tw-secondary text-white shadow-lg"
+                      : "text-secondary-text hover:text-foreground"
+                  }`}
+                >
+                  Address Only
+                </button>
+                <button
+                  onClick={() => setQrMode("payment")}
+                  className={`flex-1 py-2 px-3 rounded-md text-sm font-medium transition-all ${
+                    qrMode === "payment"
+                      ? "bg-gradient-to-r from-tw-primary to-tw-secondary text-white shadow-lg"
+                      : "text-secondary-text hover:text-foreground"
+                  }`}
+                >
+                  Payment Request
+                </button>
+              </div>
+
+              {/* Amount Input (only show in payment mode) */}
+              {qrMode === "payment" && (
+                <div>
+                  <label className="text-sm text-secondary-text">Amount ({balance?.symbol || "ETH"})</label>
+                  <input
+                    type="number"
+                    value={receiveAmount}
+                    onChange={(e) => setReceiveAmount(e.target.value)}
+                    placeholder="0.0"
+                    step="0.001"
+                    className="w-full mt-1 px-4 py-2 bg-white/5 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-tw-primary/50"
+                  />
+                  <p className="text-xs text-secondary-text mt-1">
+                    💡 Scanning this QR will pre-fill a transaction with this amount
+                  </p>
+                </div>
+              )}
+
               {/* QR Code */}
-              <div className="flex justify-center p-6 bg-white rounded-lg">
+              <div className="flex justify-center p-8 glass rounded-xl border-2 border-tw-accent/20">
                 <QRCodeSVG 
-                  value={account.address}
+                  value={getQRValue()}
                   size={200}
                   level="H"
                   includeMargin={true}
+                  fgColor="#00D4FF"
+                  bgColor="#0a0a0a"
                 />
               </div>
 
-              {/* Address Display */}
-              <div className="space-y-2">
-                <label className="text-sm text-secondary-text">Your Address</label>
-                <div className="flex items-center gap-2 p-3 bg-white/5 rounded-lg border border-border">
-                  <p className="flex-1 font-mono text-xs break-all">{account.address}</p>
-                  <button
-                    onClick={handleCopyAddress}
-                    className="shrink-0 px-3 py-1.5 rounded bg-gradient-to-r from-tw-primary to-tw-secondary hover:opacity-90 transition-opacity text-sm font-medium"
-                  >
-                    Copy
-                  </button>
+              {/* Info Display */}
+              {qrMode === "payment" && receiveAmount ? (
+                <div className="p-3 bg-tw-accent/10 border border-tw-accent/20 rounded-lg">
+                  <p className="text-xs font-semibold text-tw-accent mb-2">💳 Payment Request Details:</p>
+                  <div className="space-y-1 text-xs">
+                    <p><span className="text-secondary-text">Amount:</span> {receiveAmount} {balance?.symbol || "ETH"}</p>
+                    <p><span className="text-secondary-text">Network:</span> {getCurrentChainInfo().name}</p>
+                    <p><span className="text-secondary-text">To:</span> <span className="font-mono">{account.address.slice(0, 10)}...{account.address.slice(-8)}</span></p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 p-3 bg-white/5 rounded-lg border border-border">
+                    <p className="flex-1 font-mono text-xs break-all">{account.address}</p>
+                    <button
+                      onClick={handleCopyAddress}
+                      className="shrink-0 px-3 py-1.5 rounded bg-gradient-to-r from-tw-primary to-tw-secondary hover:opacity-90 transition-opacity text-sm font-medium"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Warning */}
               <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
                 <p className="text-xs text-yellow-200">
-                  ⚠️ Only send ETH and ERC-20 tokens on Ethereum Mainnet to this address
+                  ⚠️ {qrMode === "payment" 
+                    ? `Payment request for ${getCurrentChainInfo().name}. Sender will confirm the ${receiveAmount} ${balance?.symbol || "ETH"} amount.` 
+                    : `Scans to ${getCurrentChainInfo().name} send screen. Sender enters amount.`}
                 </p>
               </div>
 
               <button
-                onClick={() => setShowReceiveModal(false)}
+                onClick={() => {
+                  setShowReceiveModal(false);
+                  setQrMode("address");
+                  setReceiveAmount("");
+                }}
                 className="w-full py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
               >
                 Close
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Swap Modal */}
-      {showSwapModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowSwapModal(false)}>
+      {showSwapModal && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]" onClick={() => setShowSwapModal(false)}>
           <div className="glass rounded-2xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">Swap Tokens</h2>
@@ -347,12 +431,13 @@ export function WalletInfoPanel() {
               }}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Bridge Modal */}
-      {showBridgeModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowBridgeModal(false)}>
+      {showBridgeModal && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]" onClick={() => setShowBridgeModal(false)}>
           <div className="glass rounded-2xl p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">Bridge Tokens</h2>
@@ -378,7 +463,8 @@ export function WalletInfoPanel() {
               }}
             />
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   );

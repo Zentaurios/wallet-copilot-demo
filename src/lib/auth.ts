@@ -23,7 +23,7 @@ const adminAccount = privateKeyToAccount({
 
 // Create and export the auth instance
 export const thirdwebAuth = createAuth({
-  domain: process.env.NEXT_PUBLIC_APP_URL || "localhost:3000",
+  domain: process.env.NEXT_PUBLIC_APP_URL || "wallet-copilot-demo.vercel.app",
   client: thirdwebClient,
   adminAccount,
 });

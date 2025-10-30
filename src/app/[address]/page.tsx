@@ -166,7 +166,7 @@ function WalletDashboardContent() {
             {/* Collapse/Expand Button */}
             <button
               onClick={() => setWalletPanelCollapsed(!walletPanelCollapsed)}
-              className="absolute -left-4 top-1/2 -translate-y-1/2 z-20 w-8 h-16 glass rounded-lg hover:bg-white/10 transition-all flex items-center justify-center shadow-lg border border-border"
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-50 w-8 h-16 glass rounded-lg hover:bg-white/10 transition-all flex items-center justify-center shadow-lg border border-border"
               title={walletPanelCollapsed ? "Expand wallet" : "Collapse wallet"}
             >
               <span className="text-secondary-text text-2xl font-light">
